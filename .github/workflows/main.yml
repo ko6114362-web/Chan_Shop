@@ -1,7 +1,4 @@
 
-Run details
-Workflow file for this run
-.github/workflows/build-apk.yml at 5467438
 name: Build CHAN SHOP APK
 
 on:
