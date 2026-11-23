@@ -3,7 +3,7 @@ name: Build CHAN SHOP APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: read
@@ -16,9 +16,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract Android project ZIP
+        shell: bash
         run: |
-          unzip -o ChanShopAndroid-GitHub.zip
-          test -f ChanShopAndroid/app/build.gradle
+          set -e
+          mkdir -p "$RUNNER_TEMP/chan-shop-source"
+          unzip -o ChanShopAndroid-GitHub.zip -d "$RUNNER_TEMP/chan-shop-source"
+          PROJECT_DIR="$(find "$RUNNER_TEMP/chan-shop-source" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/app/build.gradle" ]; then
+            echo "Could not find Android project settings.gradle and app/build.gradle in the ZIP."
+            find "$RUNNER_TEMP/chan-shop-source" -maxdepth 5 -type f
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -32,13 +41,12 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build debug APK
-        working-directory: ChanShopAndroid
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: CHAN-SHOP-APK
-          path: ChanShopAndroid/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
